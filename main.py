@@ -6,7 +6,42 @@ import os
 import uuid
 import shutil
 
+# ✅ ADDED
+from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime
+
 app = FastAPI()
+
+# ✅ ADDED — scheduler instance
+scheduler = BackgroundScheduler()
+
+
+# ✅ ADDED — job that runs every 15 mins
+def scheduled_job():
+    now = datetime.now()
+    print(f"[SCHEDULER] Running task at {now}")
+    # 👉 put your logic here
+    # example: cleanup, db check, logs, etc.
+
+
+# ✅ ADDED — schedule: every 15 mins between 9AM–6PM
+scheduler.add_job(
+    scheduled_job,
+    trigger="cron",
+    minute="*/15",
+    hour="9-18"
+)
+
+
+# ✅ ADDED — start & stop scheduler safely
+@app.on_event("startup")
+def start_scheduler():
+    scheduler.start()
+
+
+@app.on_event("shutdown")
+def stop_scheduler():
+    scheduler.shutdown()
 
 
 class CodeRequest(BaseModel):
@@ -45,7 +80,6 @@ def execute_code(request: CodeRequest):
                 text=True
             )
 
-            # compile error
             if compile_process.returncode != 0:
                 return {
                     "stdout": "",
@@ -103,7 +137,6 @@ def execute_code(request: CodeRequest):
 
             cmd = [exe_file]
 
-        # ================= UNSUPPORTED =================
         else:
             return {
                 "stdout": "",
@@ -126,7 +159,6 @@ def execute_code(request: CodeRequest):
             "exit_code": result.returncode
         }
 
-    # ================= TIMEOUT =================
     except subprocess.TimeoutExpired:
         return {
             "stdout": "",
@@ -134,7 +166,6 @@ def execute_code(request: CodeRequest):
             "exit_code": 124
         }
 
-    # ================= UNKNOWN ERROR =================
     except Exception as e:
         return {
             "stdout": "",
@@ -142,6 +173,5 @@ def execute_code(request: CodeRequest):
             "exit_code": 1
         }
 
-    # ================= CLEANUP =================
     finally:
         shutil.rmtree(work_dir, ignore_errors=True)
